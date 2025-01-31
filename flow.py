@@ -1,0 +1,81 @@
+import array
+import OpenEXR
+import Imath
+import numpy as np
+import cv2
+import sys
+from pathlib import Path
+import numpy as np
+import struct
+
+
+def exr2flow(exr, w,h):
+    file = OpenEXR.InputFile(exr)
+        
+    # Compute the size
+    dw = file.header()['dataWindow']
+    sz = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+    print(sz)
+
+    channels = file.header()['channels'].keys()
+
+    print("Available channels:")
+    for channel in channels:
+        print(channel)
+
+    FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
+    (R,G,B) = [array.array('f', file.channel(Chan, FLOAT)).tolist() for Chan in ("ViewLayer.Vector.X", "ViewLayer.Vector.Y", "ViewLayer.Vector.Z") ]
+    
+    img = np.zeros((h,w,3), np.float64)
+    img[:,:,0] = np.array(R).reshape(img.shape[0],-1)
+    img[:,:,1] = -np.array(G).reshape(img.shape[0],-1)
+
+    hsv = np.zeros((h,w,3), np.uint8)
+    hsv[...,1] = 255
+
+    mag, ang = cv2.cartToPolar(img[...,0], img[...,1])
+    hsv[...,0] = ang*180/np.pi/2
+    hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
+    rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+    # cv2.imshow("RGB Image", rgb)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+    # save the image
+    output_path = "img.png"  # Change to your desired path and filename
+    cv2.imwrite(output_path, rgb)
+    print(f"Image saved to {output_path}")
+
+    return R, G
+
+def writeFLO(filename, width, height, u_data, v_data):
+    """
+    Create a binary flow file with the specified format.
+
+    Args:
+        filename (str): Output file name.
+        width (int): Width of the flow data.
+        height (int): Height of the flow data.
+        u_data (np.ndarray): 2D array of horizontal flow components (HxW).
+        v_data (np.ndarray): 2D array of vertical flow components (HxW).
+    """
+    # Check input validity
+    if u_data.shape != (height, width) or v_data.shape != (height, width):
+        raise ValueError("u_data and v_data must have the shape (height, width).")
+
+    # Open the file in binary write mode
+    with open(filename, 'wb') as f:
+        # Write the header: "PIEH" as float (202021.25 in little-endian)
+        f.write(struct.pack('<f', 202021.25))  # '<' for little-endian, 'f' for float
+
+        # Write the width and height as integers (little-endian)
+        f.write(struct.pack('<i', width))  # '<i' for little-endian 32-bit integer
+        f.write(struct.pack('<i', height))
+
+        # Interleave u and v data row by row and write as floats
+        for y in range(height):
+            for x in range(width):
+                f.write(struct.pack('<f', u_data[y, x]))  # Write u component
+                f.write(struct.pack('<f', -1.0 * v_data[y, x]))  # Write v component
