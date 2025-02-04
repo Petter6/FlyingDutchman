@@ -1,6 +1,6 @@
 import os
 import shutil 
-from test import create_dataset
+from scene import create_dataset
 import config
 
 

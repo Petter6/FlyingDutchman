@@ -5,9 +5,10 @@ import random
 from flow import exr2flow, writeFLO
 import matplotlib.pyplot as plt
 import numpy as np
-import shutil
 from render import render_two_frames
 import config
+from mathutils import Vector
+from coordinate import sample_in_frustum, local_to_world
 
 asset_path = '/Users/Petter/Documents/uni/thesis/SynthDet/SynthDet/Assets'
 bb_list = []
@@ -20,14 +21,15 @@ def delete_all():
 
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
+
     
 def set_camera():
     # add a new camera
     bpy.ops.object.camera_add(location=config.camera_pos)
-    camera = bpy.context.object  # The new camera becomes the active object
+    camera = bpy.context.object  
 
-    # point the camera at the origin
-    camera.rotation_euler = (radians(270), radians(180), radians(180))
+    # randomly rotate the camera along the z-axis
+    camera.rotation_euler = (radians(90), radians(0), radians(np.random.uniform(0, 360)))
 
     # set the camera as the active camera
     bpy.context.scene.camera = camera
@@ -43,18 +45,20 @@ def add_light():
     # Link the light object to the scene collection
     bpy.context.collection.objects.link(light_object)
 
+    print('light')
+
     # Set the light's location
     match config.light_orientation:
         case 'left':
-            light_object.location = (-2, -3, 0)  
+            light_object.location = local_to_world(-1, 0, 2)  
         case 'right':
-            light_object.location = (2, -3, 0) 
+            light_object.location = local_to_world(1, 0, 2) 
         case 'down':
-            light_object.location = (0, -3, -2) 
+            light_object.location = local_to_world(0, -1, 2) 
         case 'up':
-            light_object.location = (0, -3, 2) 
+            light_object.location = local_to_world(0, 1, 2) 
         case _:
-            light_object.location = (0, -3, 0) 
+            light_object.location = local_to_world(0, 0, 0) 
 
 
 # Utility function to import FBX
@@ -139,11 +143,7 @@ def rand_init(object):
     )
 
     # assign a x, y, z
-    object.location = (
-        random.uniform(-0.7, 0.7),  
-        random.uniform(0, 2),  
-        random.uniform(-0.5, 0.5)  
-    )
+    object.location = sample_in_frustum()
 
 # Main function to create the object
 def create_object(name):
@@ -246,15 +246,13 @@ def render(scene):
 
     # Write the flow to .flo file
     writeFLO(file_path, config.x_resolution, config.y_resolution, x, y)
-    
-
 
 def create_dataset():
     bpy.context.scene.render.resolution_x = config.x_resolution
     bpy.context.scene.render.resolution_y = config.y_resolution
 
     for scene in range(config.num_scenes):
-         # clear entire scene
+        # clear entire scene
         delete_all()
         set_camera()
         add_light()
