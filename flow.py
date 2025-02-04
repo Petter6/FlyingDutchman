@@ -8,6 +8,23 @@ from pathlib import Path
 import numpy as np
 import struct
 
+# Create a color wheel
+def create_color_wheel(size):
+    xx, yy = np.meshgrid(np.linspace(-1, 1, size), np.linspace(-1, 1, size))
+    mag = np.sqrt(xx**2 + yy**2)
+    ang = np.arctan2(yy, xx)
+    ang[ang < 0] += 2 * np.pi # creates range [0, 2pi]
+
+    hsv_wheel = np.zeros((size, size, 3), dtype=np.uint8)
+    hsv_wheel[..., 0] = ang * 180 / (2 * np.pi)  # number between 0-180 
+    hsv_wheel[..., 1] = 255  # saturation (full saturation)
+    hsv_wheel[..., 2] = 255  # value (full brightness)
+
+    color_wheel = cv2.cvtColor(hsv_wheel, cv2.COLOR_HSV2BGR)
+    mask = (mag > 1).astype(np.uint8) * 255 # makes it a circle
+    color_wheel = cv2.bitwise_and(color_wheel, color_wheel, mask=~mask)
+    return color_wheel
+
 
 def exr2flow(exr, w,h):
     file = OpenEXR.InputFile(exr)
@@ -16,13 +33,11 @@ def exr2flow(exr, w,h):
     dw = file.header()['dataWindow']
     sz = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
 
-    print(sz)
+    # channels = file.header()['channels'].keys()
 
-    channels = file.header()['channels'].keys()
-
-    print("Available channels:")
-    for channel in channels:
-        print(channel)
+    # print("Available channels:")
+    # for channel in channels:
+    #     print(channel)
 
     FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
     (R,G,B) = [array.array('f', file.channel(Chan, FLOAT)).tolist() for Chan in ("ViewLayer.Vector.X", "ViewLayer.Vector.Y", "ViewLayer.Vector.Z") ]
@@ -38,6 +53,15 @@ def exr2flow(exr, w,h):
     hsv[...,0] = ang*180/np.pi/2
     hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
     rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+    # Create a color wheel of desired size
+    color_wheel_size = 100
+    color_wheel = create_color_wheel(color_wheel_size)
+
+    # Overlay the color wheel on the original image
+    x_offset = rgb.shape[1] - color_wheel_size - 10
+    y_offset = 10
+    rgb[y_offset:y_offset+color_wheel_size, x_offset:x_offset+color_wheel_size] = color_wheel
 
     # cv2.imshow("RGB Image", rgb)
     # cv2.waitKey(0)
@@ -66,7 +90,7 @@ def writeFLO(filename, width, height, u_data, v_data):
         raise ValueError("u_data and v_data must have the shape (height, width).")
 
     # Open the file in binary write mode
-    with open(filename, 'wb') as f:
+    with open(filename, 'wb+') as f:
         # Write the header: "PIEH" as float (202021.25 in little-endian)
         f.write(struct.pack('<f', 202021.25))  # '<' for little-endian, 'f' for float
 
