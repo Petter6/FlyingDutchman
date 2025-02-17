@@ -1,0 +1,12 @@
+numpy==1.26.4
+scipy
+matplotlib==3.10.0
+mathutils==3.3.0
+cv
+array
+OpenEXR
+Imath
+struct
+bpy==4.4.0
+pillow==11.1.0
+
