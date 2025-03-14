@@ -7,6 +7,11 @@ import sys
 from pathlib import Path
 import numpy as np
 import struct
+from coordinate import get_ray
+import bpy
+import mathutils
+
+import matplotlib.pyplot as plt
 
 # Create a color wheel
 def create_color_wheel(size):
@@ -28,23 +33,84 @@ def create_color_wheel(size):
 
 def exr2flow(exr, w,h):
     file = OpenEXR.InputFile(exr)
+    file2 = OpenEXR.InputFile('/Users/Petter/Documents/uni/thesis/Blender2flow/tmp/img_frame2.exr')
         
     # Compute the size
     dw = file.header()['dataWindow']
     sz = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
 
-    # channels = file.header()['channels'].keys()
+    channels = file.header()['channels'].keys()
 
-    # print("Available channels:")
-    # for channel in channels:
-    #     print(channel)
+    print("Available channels:")
+    for channel in channels:
+        print(channel)
 
     FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
-    (R,G,B) = [array.array('f', file.channel(Chan, FLOAT)).tolist() for Chan in ("ViewLayer.Vector.X", "ViewLayer.Vector.Y", "ViewLayer.Vector.Z") ]
-    
+    (R,G,B, A) = [array.array('f', file.channel(Chan, FLOAT)).tolist() for Chan in ("ViewLayer.Vector.X", "ViewLayer.Vector.Y", "ViewLayer.Vector.W", "ViewLayer.Vector.Z") ]
+    # (R,G,B) = [array.array('f', file.channel(Chan, FLOAT)).tolist() for Chan in ("View Layer.Vector.X", "View Layer.Vector.Y", "View Layer.Vector.Z") ]
+
     img = np.zeros((h,w,3), np.float64)
-    img[:,:,0] = np.array(R).reshape(img.shape[0],-1)
-    img[:,:,1] = -np.array(G).reshape(img.shape[0],-1)
+    img[:,:,0] = -np.array(A).reshape(img.shape[0],-1)
+    img[:,:,1] = np.array(B).reshape(img.shape[0],-1)
+    img[:,:,2] = np.array(B).reshape(img.shape[0],-1)
+    vis = np.ones((h, w), dtype=bool)
+
+    count_hor, count_ver, count_rot, count_obj = 0, 0, 0, 0
+
+    # Iterate over all pixels
+    for pixel_y in range(h):
+        for pixel_x in range(w):
+            new_x = img[pixel_y, pixel_x][0] + pixel_x
+            new_y = img[pixel_y, pixel_x][1] + pixel_y
+
+            # Check bounds
+            if new_x < 0 or new_x >= w:
+                # print(f"Horizontally out of bounds at ({pixel_x}, {pixel_y})")
+                vis[pixel_y, pixel_x] = False
+                count_hor += 1
+            elif new_y < 0 or new_y >= h:
+                # print(f"Vertically out of bounds at ({pixel_x}, {pixel_y})")
+                vis[pixel_y, pixel_x] = False
+                count_ver += 1
+            else:
+                # Perform ray casts at original and new locations
+                hit_orig, obj_orig, face_orig = get_ray(pixel_x, pixel_y, frame_number=0)
+
+                if not hit_orig:
+                    continue
+
+                hit_new, obj_new, face_new = get_ray(new_x, new_y, frame_number=1)
+
+                # Check occlusion: If object or face ID changes, mark it as occluded
+                if hit_new and (obj_orig != obj_new):
+                    vis[pixel_y, pixel_x] = False  # Pixel is occluded
+                    count_obj += 1
+                elif hit_new and (face_orig != face_new):
+                    vis[pixel_y, pixel_x] = False
+                    count_rot += 1
+                else:
+                    continue
+
+
+
+                
+    # Convert boolean `vis` to an image-friendly format (0 for False, 1 for True)
+    vis_image = vis.astype(np.uint8)  # Convert to 0 and 1
+
+    # Show the visibility map
+    plt.figure(figsize=(10, 5))
+    plt.imshow(vis_image, cmap='gray', interpolation='nearest')
+    plt.colorbar(label="Visibility (1=Visible, 0=Occluded)")
+    plt.title("Visibility Map")
+    plt.xlabel("Pixel X")
+    plt.ylabel("Pixel Y")
+    plt.show()
+
+    print("Rotation: " + str(count_rot))
+    print("Object: " + str(count_obj))
+    print("OOB_Hor: " + str(count_hor))
+    print("OOB_Ver: " + str(count_ver))
+
 
     hsv = np.zeros((h,w,3), np.uint8)
     hsv[...,1] = 255
@@ -72,7 +138,10 @@ def exr2flow(exr, w,h):
     cv2.imwrite(output_path, rgb)
     print(f"Image saved to {output_path}")
 
-    return R, G
+    return A, B
+
+def calculate_occlusion():
+    pass
 
 def writeFLO(filename, width, height, u_data, v_data):
     """

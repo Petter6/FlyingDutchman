@@ -8,10 +8,12 @@ import numpy as np
 from render import render_two_frames
 import config
 from mathutils import Vector
-from coordinate import sample_in_frustum, local_to_world
+from coordinate import sample_in_frustum, local_to_world, world_to_local
+import sys
 
 asset_path = '/Users/Petter/Documents/uni/thesis/SynthDet/SynthDet/Assets'
 bb_list = []
+light_object = None
 
 # delete everything in the scene 
 def delete_all():
@@ -35,17 +37,12 @@ def set_camera():
     bpy.context.scene.camera = camera
 
 def add_light():
-    # Create a new light data block
+    global light_object  # Use the global variable to store light
     light_data = bpy.data.lights.new(name="Light", type=config.light_type)  
-    light_data.energy = config.light_intensity  # Set light energy (intensity)
+    light_data.energy = config.light_intensity  # Initial intensity
 
-    # Create a new object with the light data block
     light_object = bpy.data.objects.new(name="Light_Object", object_data=light_data)
-
-    # Link the light object to the scene collection
     bpy.context.collection.objects.link(light_object)
-
-    print('light')
 
     # Set the light's location
     match config.light_orientation:
@@ -107,30 +104,29 @@ def random_object():
     return path.split('.')[0]
 
 def rand_displace(obj):
-
-    x_loc, y_loc, z_loc = obj.location
+    x_loc, y_loc, z_loc = world_to_local(obj.location[0], obj.location[1], obj.location[2])
     x_rot, y_rot, z_rot = obj.rotation_euler
 
     if config.gaussian_trans:
-        obj.location = (
-            np.random.normal(x_loc, config.sigma_trans),
-            np.random.normal(y_loc, config.sigma_trans),
-            np.random.normal(z_loc, config.sigma_trans),
-        )
+        x_loc = np.random.normal(x_loc, config.sigma_trans)
+        y_loc = np.random.normal(y_loc, config.sigma_trans)
+        z_loc = np.random.normal(z_loc, config.sigma_trans)
 
         
     else:
-         obj.location = (
-            x_loc + np.random.uniform(-config.x_trans, config.x_trans),
-            y_loc + np.random.uniform(-config.y_trans, config.y_trans),
-            z_loc + np.random.uniform(-config.z_trans, config.z_trans),
-        )
+        x_loc = x_loc + np.random.uniform(-config.x_trans, config.x_trans)
+        y_loc = y_loc + np.random.uniform(-config.y_trans, config.y_trans)
+        z_loc = z_loc + np.random.uniform(-config.z_trans, config.z_trans)
+    
 
     obj.rotation_euler = (
             np.random.normal(x_rot, config.sigma_rot),
             np.random.normal(y_rot, config.sigma_rot),
             np.random.normal(z_rot, config.sigma_rot),
         )
+    
+    obj.location = local_to_world(x_loc, y_loc, z_loc)
+  
 
 
 
@@ -146,7 +142,7 @@ def rand_init(object):
     object.location = sample_in_frustum()
 
 # Main function to create the object
-def create_object(name):
+def create_object(name, idx):
     # construct paths
     fbx_path = os.path.join(asset_path, "Foreground Objects", "Models", f"{name}.fbx")
     texture_path = os.path.join(asset_path, "Foreground Objects", "Textures", f"{name}.jpg")
@@ -155,7 +151,17 @@ def create_object(name):
     imported_object = import_fbx(fbx_path)
 
     # rename the object 
-    imported_object.name = name
+    imported_object.name = str(idx)
+    imported_object.pass_index = idx
+
+    if imported_object and imported_object.type == 'MESH':
+        mesh = imported_object.data  # Access mesh data
+        
+        print(f"Object: {imported_object.name} has {len(mesh.polygons)} faces.")
+        
+        # Loop through all faces (polygons)
+        for i, face in enumerate(mesh.polygons):
+            print(f"Face {i}: {face.vertices[:]}")  # Print the vertex indices of each face
 
     # randomly place, rotate and name object
     rand_init(imported_object)
@@ -200,15 +206,16 @@ def add_background():
     links.new(bg.outputs["Background"], output.inputs["Surface"])
 
     # set the background strength
-    bg.inputs["Strength"].default_value = 1.0
+    bg.inputs["Strength"].default_value = 0.5
 
 
 def create_scene(scene):
+    global light_object
     add_background()
     
-    for _ in range(config.num_obj):
+    for idx in range(config.num_obj):
         object_name = random_object()
-        create_object(object_name)
+        create_object(object_name, idx)
 
     for obj in bpy.data.objects:
         if obj.name == 'Light_Object' or obj.name == 'Camera':
@@ -220,6 +227,13 @@ def create_scene(scene):
             obj.keyframe_insert("location", frame=(scene*2)+1)
             obj.keyframe_insert("rotation_euler", frame=(scene*2)+1)
 
+    # Change the light intensity in the second frame
+    if light_object:
+        light_object.data.energy = config.light_intensity_second_frame  
+        light_object.data.keyframe_insert("energy", frame=scene * 2)
+
+        light_object.data.energy = config.light_intensity  
+        light_object.data.keyframe_insert("energy", frame=(scene * 2) + 1)
 
 def render(scene):
     flow_path = config.folder_path + '/training/flow/scene_' + str(scene)
@@ -228,23 +242,14 @@ def render(scene):
     os.mkdir(flow_path)
     os.mkdir(img_path)
 
-    # Render the frames
-    render_two_frames(scene*2, (scene*2) + 1, scene, img_path)
+    render_two_frames(scene * 2, (scene * 2) + 1, scene, img_path)
 
-    # Calculate optical flow with the new resolution
     x_out, y_out = exr2flow('./tmp/img_frame1.exr', config.x_resolution, config.y_resolution)
-
-    # Reshape the flow data
     x = np.array(x_out).reshape(config.y_resolution, config.x_resolution)
     y = np.array(y_out).reshape(config.y_resolution, config.x_resolution)
-
-    # Combine the flow components
     x_y = np.stack((x, y), axis=2)
-
-    # Full file path
+    
     file_path = os.path.join(flow_path, 'flow.flo')
-
-    # Write the flow to .flo file
     writeFLO(file_path, config.x_resolution, config.y_resolution, x, y)
 
 def create_dataset():
@@ -252,15 +257,9 @@ def create_dataset():
     bpy.context.scene.render.resolution_y = config.y_resolution
 
     for scene in range(config.num_scenes):
-        # clear entire scene
+        #clear entire scene
         delete_all()
         set_camera()
         add_light()
         create_scene(scene)
         render(scene)
-
-    
-
-    
-
-

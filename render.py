@@ -49,13 +49,18 @@ def render_two_frames(frame1, frame2, scene, base_filepath):
         # Enable necessary passes
         # view_layer.use_pass_combined = True
         view_layer.use_pass_vector = True
-        # view_layer.use_pass_z = True
+        view_layer.use_pass_z = True
+        view_layer.use_pass_position = True
     
         bpy.context.scene.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
 
          # Render the second frame
-        bpy.context.scene.frame_set(frame2)  # Set to the second frame
+        bpy.context.scene.frame_set(frame1)  # Set to the second frame
         bpy.context.scene.render.filepath = f"./tmp/img_frame1.exr"
+        bpy.ops.render.render(write_still=True)
+
+        bpy.context.scene.frame_set(frame2)  # Set to the second frame
+        bpy.context.scene.render.filepath = f"./tmp/img_frame2.exr"
         bpy.ops.render.render(write_still=True)
 
         print("hallo")
@@ -64,12 +69,12 @@ def render_two_frames(frame1, frame2, scene, base_filepath):
 
         # Render the first frame
         bpy.context.scene.frame_set(frame1)  # Set to the first frame
-        bpy.context.scene.render.filepath = f"{base_filepath}/frame{frame2}.png"
+        bpy.context.scene.render.filepath = f"{base_filepath}/frame{frame1}.png"
         bpy.ops.render.render(write_still=True)
 
         # Render the second frame
         bpy.context.scene.frame_set(frame2)  # Set to the second frame
-        bpy.context.scene.render.filepath = f"{base_filepath}/frame{frame1}.png"
+        bpy.context.scene.render.filepath = f"{base_filepath}/frame{frame2}.png"
         bpy.ops.render.render(write_still=True)
 
         print("Rendering complete.")

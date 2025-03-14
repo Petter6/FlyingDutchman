@@ -2,6 +2,7 @@ import os
 import shutil 
 from scene import create_dataset
 import config
+# from human import create_dataset
 
 
 def create_folder():
