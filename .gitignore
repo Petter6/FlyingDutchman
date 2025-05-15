@@ -1,0 +1,8 @@
+.vscode
+__pycache__
+venv
+resources
+tmp
+z_data
+*.png
+extra

@@ -1,0 +1,76 @@
+{
+  "scene": {
+    "num_scenes": 50,
+    "num_obj": 20,
+    "seed": null,
+    "z_min": 2.0,
+    "z_max": 3.0
+  },
+  "camera": {
+    "position_start": [0.4609, 7.083, 3.2841],
+    "rotation_start": [1.469, 0.0129, -9.625],
+    "shutter_speed": 0.0,
+    "translation": [0.2, 0.0, 0.0],
+    "rotation_offset": [0.0, 0.0, 0.01]
+  },
+  "lighting": {
+    "lighting_color": {
+      "red": [1.0, 1.0],
+      "green": [1.0, 1.0],
+      "blue": [1.0, 1.0]
+    },
+    "3d_scene_light_intensities": {
+      "p0": [500, 500],
+      "p1": [500, 500],
+      "p2": [500, 500],
+      "p3": [500, 500]
+    }
+  },
+  "objects": {
+    "path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/objects/objects.blend",
+    "with_text": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/objects/objects_with_text.blend",
+    "textures_enabled": false
+  },
+  "background": {
+    "use_3d": true,
+    "2d_background_intensity": 1.0,
+    "2d_path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/hdri",
+    "3d_path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/3d_bg/shop/Shop.blend"
+  },
+  "motion": {
+    "mean_rotation": 0.5,
+    "sigma_rotation": 0.1,
+    "mean_translation": {
+      "x": 0.1,
+      "y": 0.1,
+      "z": 0.1
+    },
+    "sigma_translation": {
+      "x": 0.05,
+      "y": 0.05,
+      "z": 0.05
+    }
+  },
+  "effects": {
+    "print_stats": true,
+    "fog": false,
+    "fog_percentage": 0.0,
+    "inverted_colors": false,
+    "inversion_strength": 0.0
+  },
+  "render": {
+    "output_folder": "/Users/Petter/Documents/uni/thesis/Blender2flow/z_data",
+    "tmp_dump_path": "./tmp",
+    "resolution": {
+      "x": 960,
+      "y": 540
+    }
+  },
+  "stats": {
+    "calc_occlusion": false,
+    "calc_displacement": false,
+    "calc_ciede2000": false,
+    "calc_fluctuation": false,
+    "print": false
+  }
+}

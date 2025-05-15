@@ -1,0 +1,6 @@
+{
+  "target_indicator": "displacement",
+  "target_mean": 50.0,
+  "target_variation": 2.0,
+  "output_file": "config/learn/output_displacement.json"
+}

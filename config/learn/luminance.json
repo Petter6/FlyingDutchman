@@ -1,0 +1,5 @@
+{
+  "target_indicator": "luminance",
+  "target_average": 50.0,
+  "output_file": "config/learn/output_luminance.json"
+}
