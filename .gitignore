@@ -6,3 +6,6 @@ tmp
 z_data
 *.png
 extra
+bpy-env
+blender_env
+blender_env.sif

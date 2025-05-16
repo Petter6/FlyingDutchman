@@ -27,15 +27,15 @@
     }
   },
   "objects": {
-    "path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/objects/objects.blend",
-    "with_text": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/objects/objects_with_text.blend",
+    "path": "resources/objects/objects.blend",
+    "with_text": "resources/objects/objects_with_text.blend",
     "textures_enabled": false
   },
   "background": {
     "use_3d": true,
     "2d_background_intensity": 1.0,
-    "2d_path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/hdri",
-    "3d_path": "/Users/Petter/Documents/uni/thesis/Blender2flow/resources/3d_bg/shop/Shop.blend"
+    "2d_path": "resources/hdri",
+    "3d_path": "resources/3d_bg/shop/Shop.blend"
   },
   "motion": {
     "mean_rotation": 0.5,
@@ -59,7 +59,7 @@
     "inversion_strength": 0.0
   },
   "render": {
-    "output_folder": "/Users/Petter/Documents/uni/thesis/Blender2flow/z_data",
+    "output_folder": "z_data",
     "tmp_dump_path": "./tmp",
     "resolution": {
       "x": 960,

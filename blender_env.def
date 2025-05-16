@@ -1,0 +1,63 @@
+Bootstrap: docker
+From: python:3.11-slim
+
+
+%post
+apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    ffmpeg \
+    gcc \
+    g++ \
+    libegl1-mesa \
+    libgl1 \
+    libglx-mesa0 \
+    libsm6 \
+    libwayland-client0 \
+    libwayland-cursor0 \
+    libwayland-egl1-mesa \
+    libx11-6 \
+    libxext6 \
+    libxi6 \
+    libxkbcommon0 \
+    libxrandr2 \
+    libxrender1 \
+    libxcb1 \
+    python3-pip \
+    python3.11-dev \
+    python3.11-venv \
+    wget \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Symlink fix (optioneel, als libXi.so.6 nog niet gevonden wordt)
+if [ ! -e /usr/lib/libXi.so.6 ]; then
+    ln -s /usr/lib/$(uname -m)-linux-gnu/libXi.so.6 /usr/lib/libXi.so.6 || true
+fi
+
+
+    # Create virtual environment
+    python3.11 -m venv /venv
+    . /venv/bin/activate
+
+    # Upgrade pip
+    pip install --upgrade pip setuptools
+
+    # Install Python dependencies
+    pip install bpy
+    pip install openexr
+    pip install opencv-python
+    pip install matplotlib
+    pip install pypng
+    pip install "numpy==1.26.4"
+    pip install scikit-image
+    pip install colormath
+    pip install cma
+
+%environment
+    # Set environment variables
+    export PATH="/venv/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+
+%runscript
+    # Default run command
+    exec python3.11 main.py "$@"

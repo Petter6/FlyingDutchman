@@ -69,14 +69,26 @@ def render_dataset(config):
 
     bpy.context.scene.cycles.use_persistent_data = True
 
-    # Enable GPU rendering
-    bpy.context.preferences.addons['cycles'].preferences.compute_device_type = 'METAL'
-    bpy.context.preferences.addons['cycles'].preferences.get_devices()
+    prefs = bpy.context.preferences
+    cycles_prefs = prefs.addons["cycles"].preferences
 
-    # Ensure the GPU device is selected for rendering
-    for device in bpy.context.preferences.addons['cycles'].preferences.devices:
-        device.use = True  # Enable all available devices (GPU)
+    available_devices = cycles_prefs.get_devices()
+    available_types = [d.type for d in cycles_prefs.devices]
 
+    if "CUDA" in available_types:
+        cycles_prefs.compute_device_type = "CUDA"
+    elif "OPTIX" in available_types:
+        cycles_prefs.compute_device_type = "OPTIX"
+    elif "HIP" in available_types:
+        cycles_prefs.compute_device_type = "HIP"
+    elif "ONEAPI" in available_types:
+        cycles_prefs.compute_device_type = "ONEAPI"
+    else:
+        cycles_prefs.compute_device_type = "NONE"
+        print("⚠️ No compatible GPU backend found — falling back to CPU.")
+
+    bpy.context.scene.cycles.device = 'GPU' if cycles_prefs.compute_device_type != 'NONE' else 'CPU'
+    
     #Set the resolution
     bpy.context.scene.render.resolution_x = config['render']['resolution']['x']
     bpy.context.scene.render.resolution_y = config['render']['resolution']['y']
