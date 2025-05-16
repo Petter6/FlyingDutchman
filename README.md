@@ -22,7 +22,7 @@ scp [file] daic:/[directory]
 
 Login to daic: 
 ```
-ssh <YouNetID>@login.daic.tudelft.nl 
+ssh daic
 ```
 
 Home-folder: 
