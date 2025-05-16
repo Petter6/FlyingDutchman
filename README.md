@@ -13,7 +13,6 @@ Make a config file in /home/.ssh/config:
 Host daic 
   User preijalt 
   HostName login.daic.tudelft.nl 
-  ProxyJump preijalt@student-linux.tudelft.nl 
 ```
 
 Copy like this: 
