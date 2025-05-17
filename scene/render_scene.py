@@ -58,25 +58,13 @@ def render_dataset(config):
 
     bpy.context.scene.cycles.use_persistent_data = True
 
-    prefs = bpy.context.preferences
-    cycles_prefs = prefs.addons["cycles"].preferences
-
-    available_devices = cycles_prefs.get_devices()
-    available_types = [d.type for d in cycles_prefs.devices]
-
-    if "CUDA" in available_types:
-        cycles_prefs.compute_device_type = "CUDA"
-    elif "OPTIX" in available_types:
-        cycles_prefs.compute_device_type = "OPTIX"
-    elif "HIP" in available_types:
-        cycles_prefs.compute_device_type = "HIP"
-    elif "ONEAPI" in available_types:
-        cycles_prefs.compute_device_type = "ONEAPI"
-    else:
-        cycles_prefs.compute_device_type = "NONE"
-        print("⚠️ No compatible GPU backend found — falling back to CPU.")
-
-    bpy.context.scene.cycles.device = 'GPU' if cycles_prefs.compute_device_type != 'NONE' else 'CPU'
+    prefs = bpy.context.preferences.addons['cycles'].preferences
+    prefs.compute_device_type = 'CUDA'  # Or 'OPTIX' for newer NVIDIA GPUs
+    prefs.get_devices()
+    for device in prefs.devices:
+        device.use = True
+        print(f"Device: {device.name}, Type: {device.type}")
+    bpy.context.scene.cycles.device = 'GPU'
     
     #Set the resolution
     bpy.context.scene.render.resolution_x = config['render']['resolution']['x']
