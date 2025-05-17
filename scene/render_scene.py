@@ -9,6 +9,8 @@ from colormath.color_objects import LabColor
 from colormath.color_diff import delta_e_cie2000
 import random
 
+import sys
+
 def compute_ciede2000_score(image_path, sample_size=10000):
     # Load and convert to RGB
     img = Image.open(image_path).convert("RGB")
@@ -36,19 +38,6 @@ def compute_ciede2000_score(image_path, sample_size=10000):
 
     avg_diff = total_diff / count if count > 0 else 0
     return avg_diff
-
-def invert_image_with_strength(image_path):
-    """
-    Inverts an image partially by shifting RGB values toward their inverse, centered around 127.5.
-    """
-    img = Image.open(image_path).convert("RGB")
-    img_np = np.asarray(img).astype(np.float32)
-
-    # Invert by shifting each value toward 255 - value
-    inverted_np = 255.0 - img_np
-
-    blended_img = Image.fromarray(inverted_np)
-    blended_img.save(image_path)
 
 def render_dataset(config):
     # Set the render engine to Cycles (required for GPU rendering)
@@ -109,7 +98,6 @@ def render_dataset(config):
         end_frame = start_frame + 1
 
         bpy.context.scene.frame_set(start_frame) 
-
         bpy.context.scene.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
 
         # Ensure the active view layer exists
@@ -172,6 +160,7 @@ def render_dataset(config):
     if config['stats']['calc_ciede2000']:
         score = compute_ciede2000_score(f"{img_path}/frame_0.png")
         print(f"CIEDE2000 score: {score:.2f}")
+
         
 
 def render_market(frame1, frame2):

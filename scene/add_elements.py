@@ -55,7 +55,7 @@ def add_fog(config):
     # Mix Shader
     mix_shader = nodes.new(type='ShaderNodeMixShader')
     mix_shader.location = (100, 0)
-    mix_shader.inputs['Fac'].default_value = config['effects']['fog_perc']
+    mix_shader.inputs['Fac'].default_value = config['effects']['fog_percentage']
 
     # Material Output
     output = nodes.new(type='ShaderNodeOutputMaterial')

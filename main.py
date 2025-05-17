@@ -5,16 +5,10 @@ import json
 import sys
 import os
 
-# Zet het project root path (waar main.py zit) in sys.path
-project_root = os.path.dirname(os.path.abspath(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 from scene.scene_generator import create_dataset
 from utils.parser import parse_args
 from utils.stats import global_stats
 from learn_config.optimizer import run_optimization
-
 
 # ----------------------------- #
 #       UTILITY FUNCTIONS      #

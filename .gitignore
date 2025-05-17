@@ -9,3 +9,4 @@ extra
 bpy-env
 blender_env
 blender_env.sif
+.DS_Store

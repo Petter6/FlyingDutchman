@@ -1,14 +1,14 @@
 {
   "scene": {
     "num_scenes": 1,
-    "num_obj": 20,
-    "seed": null,
-    "z_min": 2.0,
-    "z_max": 3.0
+    "num_obj": 0,
+    "seed": 99,
+    "z_min": 3.0,
+    "z_max": 5.0
   },
   "camera": {
-    "position_start": [0.4609, 7.083, 3.2841],
-    "rotation_start": [1.469, 0.0129, -9.625],
+    "position_start": [0.0, 0.0, 0.0],
+    "rotation_start": [0.0, 0.0, 0.0],
     "shutter_speed": 0.0,
     "translation": [0.0, 0.0, 0.0],
     "rotation_offset": [0.0, 0.0, 0.0]
@@ -32,23 +32,23 @@
     "textures_enabled": false
   },
   "background": {
-    "use_3d": true,
+    "use_3d": false,
     "2d_background_intensity": 1.0,
     "2d_path": "resources/hdri",
     "3d_path": "resources/3d_bg/shop/Shop.blend"
   },
   "motion": {
-    "mean_rotation": 0.5,
-    "sigma_rotation": 0.1,
+    "mean_rotation": 0.0,
+    "sigma_rotation": 0.0,
     "mean_translation": {
-      "x": 0.1,
-      "y": 0.1,
-      "z": 0.1
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "sigma_translation": {
-      "x": 0.05,
-      "y": 0.05,
-      "z": 0.05
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     }
   },
   "effects": {
@@ -58,7 +58,7 @@
     "inverted_colors": false
   },
   "render": {
-    "output_folder": "z_data",
+    "output_folder": "config_zero",
     "tmp_dump_path": "./tmp",
     "resolution": {
       "x": 960,
