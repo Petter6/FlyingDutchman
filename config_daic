@@ -1,0 +1,5 @@
+Host daic
+	User preijalt
+	Hostname login.daic.tudelft.nl
+	ProxyJump student-linux.tudelft.nl
+

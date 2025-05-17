@@ -7,6 +7,6 @@ z_data
 *.png
 extra
 bpy-env
-blender_env
+blender_env.def
 blender_env.sif
 .DS_Store
