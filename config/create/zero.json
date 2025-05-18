@@ -58,8 +58,9 @@
     "inverted_colors": false
   },
   "render": {
-    "output_folder": "config_zero",
-    "tmp_dump_path": "./tmp",
+    "output_folder": "/tmp/preijalt/flow",
+    "tmp_dump_path": "/tmp/preijalt/exr",
+    "final_folder": "./config_zero",
     "resolution": {
       "x": 960,
       "y": 540

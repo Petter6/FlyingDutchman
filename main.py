@@ -22,6 +22,24 @@ def create_output_folders(path: str):
     os.makedirs(os.path.join(path, 'training', 'clean'), exist_ok=True)
     os.makedirs(os.path.join(path, 'training', 'flow'), exist_ok=True)
 
+def move_folder(config, temp_path: str, result_path: str):
+    create_output_folders(config['render']['final_folder'])
+
+    print("Moving: ", temp_path)
+    print("To: ", result_path)
+    try:
+        if os.path.isdir(temp_path):
+            shutil.copytree(temp_path, result_path, dirs_exist_ok=True)  # Python 3.8+
+        else:
+            shutil.copy(temp_path, result_path)
+
+        print("Moved to:", result_path)
+
+    except PermissionError as e:
+        print(f"PermissionError: {e}")
+    except Exception as e:
+        print(f"Unhandled error: {e}")
+
 
 def get_next_config_path(base_name="train", folder="./config/setting"):
     """Create a uniquely named empty JSON config file."""
@@ -60,6 +78,7 @@ def start():
     elif args.mode == 'create':
         create_output_folders(config['render']['output_folder'])
         create_dataset(config=config)
+        move_folder(config, config['render']['output_folder'], config['render']['final_folder'])
 
     if config['stats']['print']:
         global_stats.report()

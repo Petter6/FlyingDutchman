@@ -58,13 +58,42 @@ def render_dataset(config):
 
     bpy.context.scene.cycles.use_persistent_data = True
 
+    # Access Cycles preferences
     prefs = bpy.context.preferences.addons['cycles'].preferences
-    prefs.compute_device_type = 'CUDA'  # Or 'OPTIX' for newer NVIDIA GPUs
-    prefs.get_devices()
-    for device in prefs.devices:
-        device.use = True
-        print(f"Device: {device.name}, Type: {device.type}")
-    bpy.context.scene.cycles.device = 'GPU'
+
+    # Initialize devices
+    prefs.get_devices(True)
+
+    # Check available device types
+    device_types = {device.type for device in prefs.devices}
+
+    # Prefer Metal on macOS
+    if 'METAL' in device_types:
+        prefs.compute_device_type = 'METAL'
+    elif 'CUDA' in device_types:
+        prefs.compute_device_type = 'CUDA'
+    elif 'OPTIX' in device_types:
+        prefs.compute_device_type = 'OPTIX'
+    elif 'OPENCL' in device_types:
+        prefs.compute_device_type = 'OPENCL'
+    else:
+        print("⚠️ No compatible GPU backend found. Falling back to CPU.")
+        bpy.context.scene.cycles.device = 'CPU'
+        prefs.compute_device_type = 'NONE'
+
+    # Re-initialize after setting the device type
+    prefs.get_devices(True)
+
+    # Enable GPU rendering if a valid type was set
+    if prefs.compute_device_type != 'NONE':
+        bpy.context.scene.cycles.device = 'GPU'
+
+        # Enable all available devices
+        for device in prefs.devices:
+            device.use = True
+
+    print("✅ Using:", prefs.compute_device_type)
+    print("Enabled devices:", [(d.name, d.type, d.use) for d in prefs.devices if d.use])
     
     #Set the resolution
     bpy.context.scene.render.resolution_x = config['render']['resolution']['x']

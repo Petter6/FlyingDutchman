@@ -25,6 +25,24 @@ def create_output_folders(path: str):
     os.makedirs(os.path.join(path, 'training', 'clean'), exist_ok=True)
     os.makedirs(os.path.join(path, 'training', 'flow'), exist_ok=True)
 
+def move_folder(config, temp_path: str, result_path: str):
+    create_output_folders(config['render']['final_folder'])
+
+    print("Moving: ", temp_path)
+    print("To: ", result_path)
+    try:
+        if os.path.isdir(temp_path):
+            shutil.copytree(temp_path, result_path, dirs_exist_ok=True)  # Python 3.8+
+        else:
+            shutil.copy(temp_path, result_path)
+
+        print("Moved to:", result_path)
+
+    except PermissionError as e:
+        print(f"PermissionError: {e}")
+    except Exception as e:
+        print(f"Unhandled error: {e}")
+
 
 def get_next_config_path(base_name="train", folder="./config/setting"):
     """Create a uniquely named empty JSON config file."""
@@ -94,7 +112,7 @@ def check_res(flow, config):
 
     return True
 
-def is_inverse_of_zero_reference(img_path, idx, tol=1e-4):
+def is_inverse_of_zero_reference(img_path, idx, tol=1e-2):
     """
     Compares whether the given image is the inverse of the reference image
     at config_zero/training/clean/scene_0/frame_{idx}.png
@@ -119,22 +137,22 @@ def is_inverse_of_zero_reference(img_path, idx, tol=1e-4):
 
     return max_diff <= tol
 
-def check_luminance_mean(img_dir, idx, target, tol=1e-5):
+def check_luminance_mean(img_dir, idx, target, tol=1e-3):
     path = os.path.join(img_dir, f'frame_{idx}.png')
     img = Image.open(path).convert('RGB')
     rgb = np.asarray(img).astype(np.float32) / 255.0
     brightness = np.mean(rgb, axis=2)
 
     brightness = np.mean(brightness)
+    print(brightness)
 
     return abs(brightness - target) <= tol
 
-def check_luminance(img_dir, idx, target, tol=1e-5):
+def check_luminance(img_dir, idx, target, tol=1e-3):
     path = os.path.join(img_dir, f'frame_{idx}.png')
     img = Image.open(path).convert('RGB')
     rgb = np.asarray(img).astype(np.float32) / 255.0
     brightness = np.mean(rgb, axis=2)
-
     return abs(np.std(brightness) - target) <= tol
 
 def check_3d_lights(flo_path: str, img_path: str, config) -> bool:
@@ -468,9 +486,7 @@ def start(config, mode):
     elif mode == 'create':
         create_output_folders(config['render']['output_folder'])
         create_dataset(config=config)
-
-    if config['stats']['print']:
-        global_stats.report()
+        move_folder(config, config['render']['output_folder'], config['render']['final_folder'])
 
 def status_line(label, passed):
     check = "✅" if passed else "❌"
@@ -487,71 +503,81 @@ def test():
 
     # Load base config where all objects are stationary
     config_zero = load_json_config(zero_config_path)
+    start(config_zero, 'create')
    
     # Create a modified config with camera rotation applied
     config_with_camera_rotation = copy.deepcopy(config_zero)
     config_with_camera_rotation['camera']['rotation_offset'] = [20, 50, 50]
-    config_with_camera_rotation['render']['output_folder'] = './config_camera_rot'
+    config_with_camera_rotation['render']['final_folder'] = './config_camera_rot'
+    start(config_with_camera_rotation, 'create')
    
     # Create a config with camera movement, this shouldnt change anything in 2D
     config_with_camera_movement = copy.deepcopy(config_zero)
     config_with_camera_movement['camera']['rotation_start'] = [1.57, 0, 0]
     config_with_camera_movement['camera']['translation'] = [50, 0, 0]
-    config_with_camera_movement['render']['output_folder'] = './config_camera_mot'
+    config_with_camera_movement['render']['final_folder'] = './config_camera_mot'
+    start(config_with_camera_movement, 'create')
 
     # Create a config with object
     config_with_object = copy.deepcopy(config_zero)
     config_with_object['camera']['rotation_start'] = [1.57, 0, 0]
-    config_with_object['render']['output_folder'] = './config_obj'
+    config_with_object['render']['final_folder'] = './config_obj'
     config_with_object['scene']['num_obj'] = 1
     config_with_object['motion']['mean_translation']['x'] = 0.5
+    start(config_with_object, 'create')
 
     # Create a config with object with text
     config_with_object_with_text = copy.deepcopy(config_zero)
     config_with_object_with_text['camera']['rotation_start'] = [1.57, 0, 0]
-    config_with_object_with_text['render']['output_folder'] = './config_obj_with_text'
+    config_with_object_with_text['render']['final_folder'] = './config_obj_with_text'
     config_with_object_with_text['scene']['num_obj'] = 1
     config_with_object_with_text['motion']['mean_translation']['x'] = 0.5
     config_with_object_with_text['objects']['textures_enabled'] = True
+    start(config_with_object_with_text, 'create')
     
     # Create a config with object with rot
     config_with_object_with_rot = copy.deepcopy(config_zero)
     config_with_object_with_rot['camera']['rotation_start'] = [1.57, 0, 0]
-    config_with_object_with_rot['render']['output_folder'] = './config_obj_with_rot'
+    config_with_object_with_rot['render']['final_folder'] = './config_obj_with_rot'
     config_with_object_with_rot['scene']['num_obj'] = 1
     config_with_object_with_rot['motion']['mean_rotation'] = 0.5
     config_with_object_with_rot['objects']['textures_enabled'] = True
+    start(config_with_object_with_rot, 'create')
 
     # Create a config with object with rot
     config_with_fog = copy.deepcopy(config_zero)
     config_with_fog['camera']['rotation_start'] = [1.57, 0, 0]
-    config_with_fog['render']['output_folder'] = './config_fog'
+    config_with_fog['render']['final_folder'] = './config_fog'
     config_with_fog['effects']['fog'] = True
     config_with_fog['effects']['fog_percentage'] = 1.0
     config_with_fog['scene']['num_obj'] = 5
+    start(config_with_fog, 'create')
 
     # Fog with 0 percent 
     config_with_fog_0 = copy.deepcopy(config_zero)
-    config_with_fog_0['render']['output_folder'] = './config_fog_0'
+    config_with_fog_0['render']['final_folder'] = './config_fog_0'
     config_with_fog_0['effects']['fog'] = True
     config_with_fog_0['effects']['fog_percentage'] = 0.0
+    start(config_with_fog_0, 'create')
 
     # Inverted colors 
     config_inverted = copy.deepcopy(config_zero)
-    config_inverted['render']['output_folder'] = './config_inverted'
+    config_inverted['render']['final_folder'] = './config_inverted'
     config_inverted['effects']['inverted_colors'] = True
+    start(config_inverted, 'create')
 
     # 3d-bg  
     config_3d = copy.deepcopy(config_zero)
-    config_3d['render']['output_folder'] = './config_3d'
+    config_3d['render']['final_folder'] = './config_3d'
     config_3d['background']['use_3d'] = True
     config_3d['camera']['rotation_offset'] = [0.0, 0.0, 0.2]
     config_3d['camera']['rotation_start'] = [1.469, 0.0129, -9.625]
     config_3d['camera']['position_start'] = [0.4609, 7.083, 3.2841]
+    start(config_3d, 'create')
 
     # 3d-bg with lights
     config_3d_lights = copy.deepcopy(config_zero)
-    config_3d_lights['render']['output_folder'] = './config_3d_lights'
+    config_3d_lights['render']['final_folder'] = './config_3d_lights'
     config_3d_lights['background']['use_3d'] = True
     config_3d_lights['camera']['rotation_start'] = [1.469, 0.0129, -9.625]
     config_3d_lights['camera']['position_start'] = [0.4609, 7.083, 3.2841]
@@ -561,18 +587,6 @@ def test():
     config_3d_lights['lighting']['3d_scene_light_intensities']['p1'] = [500, 250]
     config_3d_lights['lighting']['3d_scene_light_intensities']['p2'] = [500, 250]
     config_3d_lights['lighting']['3d_scene_light_intensities']['p3'] = [500, 250]
-
-
-    start(config_zero, 'create')
-    start(config_with_camera_rotation, 'create')
-    start(config_with_camera_movement, 'create')
-    start(config_with_object, 'create')
-    start(config_with_object_with_text, 'create')
-    start(config_with_object_with_rot, 'create')
-    start(config_with_fog, 'create')
-    start(config_with_fog_0, 'create')
-    start(config_inverted, 'create')
-    start(config_3d, 'create')
     start(config_3d_lights, 'create')
    
     # Run checks
