@@ -49,6 +49,6 @@ module load cuda/10.0 cudnn/10.0-7.4.2.24
 
 Getting an interactive sessions (with a GPU):
 ```
-sinteractive --gres=gpu:1 --mem=2G --time=00:10:00
+sinteractive --gres=gpu:v100 --cpus-per-task=2 --mem=8G
 ```
 
