@@ -40,6 +40,13 @@ Running the .sif container (nv flag needed for gpu):
 apptainer run --nv blender_env.sif --mode create --config config/create/base_config.json
 ```
 
+Starting DAIC eval:
+```
+module use /opt/insy/modulefiles
+module load miniconda/3.10
+module load cuda/10.0 cudnn/10.0-7.4.2.24
+```
+
 Getting an interactive sessions (with a GPU):
 ```
 sinteractive --gres=gpu:1 --mem=2G --time=00:10:00
