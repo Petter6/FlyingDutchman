@@ -2,6 +2,7 @@ import bpy
 from math import radians
 import numpy as np
 from coordinate import local_to_world, world_to_local, sample_in_frustum
+import sys
 
 scene = bpy.context.scene
 
@@ -22,19 +23,23 @@ def delete_all():
 
 def set_camera(config):
     # add a new camera
-    bpy.ops.object.camera_add(location=config['camera']['position_start'])
+    bpy.ops.object.camera_add()
     camera = bpy.context.object  
-
-    # randomly rotate the camera along the z-axis
-    camera.rotation_euler = config['camera']['rotation_start']
 
     # set the camera as the active camera
     bpy.context.scene.camera = camera
 
+    reset_camera(config)
+
 def reset_camera(config):
-    camera = bpy.context.scene.camera
-    camera.rotation_euler = config['camera']['rotation_start']
-    camera.location = config['camera']['position_start']
+    camera = bpy.context.scene.camera 
+
+    if config['background']['use_3d']:
+        camera.rotation_euler = (1.469, 0.0129, -9.625)
+        camera.location = (0.4609, 7.083, 3.2841)
+    else:
+        camera.rotation_euler = (1.57, 0, 0)
+        camera.location = (0, 0, 0)
 
 
 def hide_all_objects(objects, frame=None):
@@ -72,10 +77,15 @@ def rand_displace(config, obj):
     # Extract mean and sigma from config
     mean_translation = config['motion']["mean_translation"]
     sigma_translation = config['motion']["sigma_translation"]
+
+    print(mean_translation)
        
     trans_x = coin_flip() * np.random.normal(mean_translation["x"], sigma_translation["x"])
     trans_y = coin_flip() * np.random.normal(mean_translation["y"], sigma_translation["y"])
     trans_z = coin_flip() * np.random.normal(mean_translation["z"], sigma_translation["z"])
+
+    # print(trans_x, trans_y, trans_z)
+    # sys.exit(1)
 
     # Apply translations
     x_loc += trans_x

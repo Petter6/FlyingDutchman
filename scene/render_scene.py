@@ -9,7 +9,30 @@ from colormath.color_objects import LabColor
 from colormath.color_diff import delta_e_cie2000
 import random
 
-import sys
+def add_background(config):
+    world = bpy.context.scene.world
+    if not world:
+        world = bpy.data.worlds.new("World")
+        bpy.context.scene.world = world
+
+    world.use_nodes = True
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+
+    nodes.clear()
+
+    bg = nodes.new(type="ShaderNodeBackground")
+    env_texture = nodes.new(type="ShaderNodeTexEnvironment")
+    output = nodes.new(type="ShaderNodeOutputWorld")
+
+    hdri_path = os.path.join(config['background']['2d_path'], np.random.choice(os.listdir(config['background']['2d_path']))) 
+   
+    env_texture.image = bpy.data.images.load(hdri_path)
+
+    links.new(env_texture.outputs["Color"], bg.inputs["Color"])
+    links.new(bg.outputs["Background"], output.inputs["Surface"])
+
+    return bg  # So we can animate it in `create_scene`
 
 def compute_ciede2000_score(image_path, sample_size=10000):
     # Load and convert to RGB
@@ -45,7 +68,7 @@ def render_dataset(config):
     bpy.context.scene.cycles.feature_set = 'SUPPORTED'
     bpy.context.scene.cycles.sample_clamp_indirect = 10.0
 
-    bpy.context.scene.cycles.samples = 10  # Adjust this value as needed
+    bpy.context.scene.cycles.samples = config['render']['nr_of_samples']  # Adjust this value as needed
     bpy.context.scene.cycles.use_adaptive_sampling = True
 
     bpy.context.scene.cycles.use_denoising = True
@@ -105,6 +128,9 @@ def render_dataset(config):
 
 
     for idx_scene in range(config['scene']['num_scenes']):
+        if not config['background']['use_3d']:
+            add_background(config)
+
         flow_path = os.path.join(base_path, 'training/flow/scene_' + str(idx_scene))
         img_path = os.path.join(base_path, 'training/clean/scene_' + str(idx_scene))
 
@@ -161,11 +187,14 @@ def render_dataset(config):
 
             # Adjust motion blur settings
             bpy.context.scene.render.motion_blur_shutter = config['camera']['shutter_speed']  
+            bpy.context.scene.render.motion_blur_position = 'END'
 
         # Render the second frame (PNG)
         bpy.context.scene.frame_set(end_frame)  
         bpy.context.scene.render.filepath = f"{img_path}/frame_1.png"
         bpy.ops.render.render(write_still=True)
+
+        bpy.context.scene.render.use_motion_blur = False
 
         if config['effects']['inverted_colors']:
             img = Image.open(f"{img_path}/frame_1.png")
@@ -177,6 +206,121 @@ def render_dataset(config):
     if config['stats']['calc_ciede2000']:
         score = compute_ciede2000_score(f"{img_path}/frame_0.png")
         print(f"CIEDE2000 score: {score:.2f}")
+
+# def render_dataset(config):
+#     # Set up Cycles
+#     bpy.context.scene.render.engine = 'CYCLES'
+#     bpy.context.scene.cycles.feature_set = 'SUPPORTED'
+#     bpy.context.scene.cycles.sample_clamp_indirect = 10.0
+#     bpy.context.scene.cycles.samples = config['render']['nr_of_samples']
+#     bpy.context.scene.cycles.use_adaptive_sampling = True
+#     bpy.context.scene.cycles.use_denoising = True
+#     bpy.context.scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+#     bpy.context.scene.cycles.max_bounces = 8
+#     bpy.context.scene.cycles.diffuse_bounces = 4
+#     bpy.context.scene.cycles.glossy_bounces = 4
+#     bpy.context.scene.cycles.transmission_bounces = 4
+#     bpy.context.scene.cycles.use_persistent_data = True
+
+#     # Setup devices
+#     prefs = bpy.context.preferences.addons['cycles'].preferences
+#     prefs.get_devices(True)
+#     device_types = {device.type for device in prefs.devices}
+#     if 'METAL' in device_types:
+#         prefs.compute_device_type = 'METAL'
+#     elif 'CUDA' in device_types:
+#         prefs.compute_device_type = 'CUDA'
+#     elif 'OPTIX' in device_types:
+#         prefs.compute_device_type = 'OPTIX'
+#     elif 'OPENCL' in device_types:
+#         prefs.compute_device_type = 'OPENCL'
+#     else:
+#         prefs.compute_device_type = 'NONE'
+#         bpy.context.scene.cycles.device = 'CPU'
+#     prefs.get_devices(True)
+#     if prefs.compute_device_type != 'NONE':
+#         bpy.context.scene.cycles.device = 'GPU'
+#         for d in prefs.devices:
+#             d.use = True
+
+#     print("✅ Using:", prefs.compute_device_type)
+#     print("Enabled devices:", [(d.name, d.type, d.use) for d in prefs.devices if d.use])
+
+#     # Set resolution
+#     bpy.context.scene.render.resolution_x = config['render']['resolution']['x']
+#     bpy.context.scene.render.resolution_y = config['render']['resolution']['y']
+#     bpy.context.scene.render.resolution_percentage = 100
+
+#     # Set frame range for all scenes
+#     num_scenes = config['scene']['num_scenes']
+#     bpy.context.scene.frame_start = 0
+#     bpy.context.scene.frame_end = num_scenes * 2 - 1
+
+#     # Motion blur
+#     bpy.context.scene.render.use_motion_blur = config['camera']['shutter_speed'] != 0.0
+#     bpy.context.scene.render.motion_blur_shutter = config['camera']['shutter_speed']
+
+#     # Set view layer passes
+#     view_layer = bpy.context.view_layer
+#     view_layer.use_pass_vector = True
+#     view_layer.use_pass_z = True
+#     view_layer.use_pass_object_index = True
+#     view_layer.use_pass_position = True
+
+#     # Paths
+#     base_path = config['render']['output_folder']
+#     exr_temp_path = config['render']['tmp_dump_path']
+#     png_temp_path = os.path.join(exr_temp_path, "png_dump")
+#     os.makedirs(exr_temp_path, exist_ok=True)
+#     os.makedirs(png_temp_path, exist_ok=True)
+
+#     # ---------- RENDER EXRs ----------
+#     bpy.context.scene.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
+#     bpy.context.scene.render.filepath = os.path.join(exr_temp_path, "frame_")
+#     bpy.ops.render.render(animation=True)
+
+#     # ---------- RENDER PNGs ----------
+#     bpy.context.scene.render.image_settings.file_format = 'PNG'
+#     bpy.context.scene.render.filepath = os.path.join(png_temp_path, "frame_")
+#     bpy.ops.render.render(animation=True)
+
+#     # ---------- POSTPROCESS AND MOVE ----------
+#     for idx_scene in range(num_scenes):
+#         flow_path = os.path.join(base_path, f"training/flow/scene_{idx_scene}")
+#         img_path = os.path.join(base_path, f"training/clean/scene_{idx_scene}")
+#         os.makedirs(flow_path, exist_ok=True)
+#         os.makedirs(img_path, exist_ok=True)
+
+#         for i in range(2):
+#             frame_num = idx_scene * 2 + i
+#             padded = f"{frame_num:04d}"
+
+#             # EXR
+#             exr_src = os.path.join(exr_temp_path, f"frame_{padded}.exr")
+#             exr_dst = os.path.join(flow_path, f"frame_{i}.exr")
+#             if os.path.exists(exr_src):
+#                 shutil.move(exr_src, exr_dst)
+
+#             # PNG
+#             png_src = os.path.join(png_temp_path, f"frame_{padded}.png")
+#             png_dst = os.path.join(img_path, f"frame_{i}.png")
+#             if os.path.exists(png_src):
+#                 if config['effects']['inverted_colors']:
+#                     img = Image.open(png_src)
+#                     inverted = ImageOps.invert(img.convert("RGB"))
+#                     inverted.save(png_dst)
+#                     os.remove(png_src)
+#                 else:
+#                     shutil.move(png_src, png_dst)
+
+#         # Optional CIEDE2000 on frame 0
+#         if config['stats']['calc_ciede2000']:
+#             ref_img = os.path.join(img_path, "frame_0.png")
+#             if os.path.exists(ref_img):
+#                 score = compute_ciede2000_score(ref_img)
+#                 print(f"Scene {idx_scene} CIEDE2000: {score:.2f}")
+
+#     print("✅ All scenes rendered and organized.")
 
         
 

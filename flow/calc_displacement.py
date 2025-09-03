@@ -11,6 +11,3 @@ def calculate_displacement(height, width, flow):
     disp_count = Counter(rounded_disp.flatten())
 
     global_stats.update("disp_hist", disp_count)
-
-    
-   

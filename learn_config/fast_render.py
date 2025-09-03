@@ -4,107 +4,118 @@ import OpenEXR
 import Imath
 import sys
 from PIL import Image
+import os
+
+from contextlib import contextmanager
 
 def displacement_render(config):
-    bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    scene = bpy.context.scene
+    tmp = config['render']['tmp_dump_path']
+    N = config['scene']['num_scenes']
 
-    bpy.context.scene.render.resolution_x = config['x_resolution']
-    bpy.context.scene.render.resolution_y = config['y_resolution']
-    bpy.context.scene.render.resolution_percentage = 100
+    # 1) Set up for multilayer EXR output & Vector pass
+    scene.render.engine                = 'BLENDER_EEVEE_NEXT'
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
+    scene.render.image_settings.color_depth    = '16'
+    scene.render.image_settings.exr_codec      = 'ZIP'
 
+    # enable Vector pass
     view_layer = bpy.context.view_layer
     view_layer.use_pass_vector = True
-    bpy.context.scene.use_nodes = False
-    bpy.context.scene.render.use_compositing = False
-    bpy.context.scene.render.use_sequencer = False
+    scene.use_nodes      = False
+    scene.render.use_compositing = False
+    scene.render.use_sequencer   = False
+    scene.eevee.taa_render_samples = 1
 
-    eevee = bpy.context.scene.eevee
-    eevee.taa_render_samples = 1
+    # 2) Tell Blender to render frames 0 through (2*N-1)
+    scene.frame_start = 0
+    scene.frame_end   = 2 * N - 1
+    # Filepath template: Blender will replace #### with frame number
+    scene.render.filepath = f"{tmp}/frame_####"
 
-    bpy.context.scene.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
-    bpy.context.scene.render.image_settings.color_depth = '16'
-    bpy.context.scene.render.image_settings.exr_codec = 'ZIP'
+    # 3) Fire off the animation render
+    bpy.ops.render.render(animation=True)
 
-    if config['use_3d_bg']:
-        layer_z = "RenderLayer.Vector.Z"
-        layer_w = "RenderLayer.Vector.W"
+    # scene.render.image_settings.file_format = 'PNG'
+    # bpy.ops.render.render(animation=True)
+
+    # 4) Now load only the odd frames’ EXRs and grab Z/W channels
+    FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
+    h = config['render']['resolution']['y']
+    w = config['render']['resolution']['x']
+
+    if config['background']['use_3d']:
+            layer_z = "RenderLayer.Vector.Z"
+            layer_w = "RenderLayer.Vector.W"
     else:
         layer_z = "ViewLayer.Vector.Z"
         layer_w = "ViewLayer.Vector.W"
 
-    h, w = config['y_resolution'], config['x_resolution']
     all_flows = []
+    for i in range(0, 2 * N, 2):   
+        exr_path = f"{tmp}/frame_{i:04d}.exr"
+        exr = OpenEXR.InputFile(exr_path)
 
-    for scene_idx in range(0, config['num_scenes'] * 2, 2):
-        # Render the frame
-        bpy.context.scene.frame_set(scene_idx)
-        exr_path = f"{config['tmp_exr_path']}/_frame_{scene_idx:03d}.exr"
-        bpy.context.scene.render.filepath = exr_path
-        bpy.ops.render.render(write_still=True)
+        vx = np.frombuffer(exr.channel(layer_z, FLOAT), dtype=np.float32).reshape(h, w)
+        vy = np.frombuffer(exr.channel(layer_w, FLOAT), dtype=np.float32).reshape(h, w)
+        exr.close()
 
-        # Load flow data directly
-        file = OpenEXR.InputFile(exr_path)
-        FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
-
-        vec_x = np.frombuffer(file.channel(layer_z, FLOAT), dtype=np.float32).reshape(h, w)
-        vec_y = np.frombuffer(file.channel(layer_w, FLOAT), dtype=np.float32).reshape(h, w)
-
-        flow = np.stack([-vec_x, vec_y], axis=-1)  # (H, W, 2)
+        flow = np.stack([vx, vy], axis=-1)  # shape (H, W, 2)
         all_flows.append(flow)
 
-        file.close()
+    # all_flows: (num_scenes, H, W, 2)
+    magnitudes = np.linalg.norm(all_flows, axis=-1)     # (num_scenes, H, W)
+    mask       = magnitudes > 0.01                     # boolean mask
+    valid_mag  = magnitudes[mask]                 # 1D array of positive floats
 
-    # Stack and save all flows
-    all_flows = np.stack(all_flows, axis=0)  # shape: (num_scenes, H, W, 2)
-    
-    np.save("./tmp/all_flows.npy", all_flows)
+    if valid_mag.size == 0:
+        return 0.0
 
+    avg_magnitude = valid_mag.mean()                   # scalar ≥ 0
+    return float(avg_magnitude)
 
 def luminance_render(config):
-    # Set Cycles 
-    bpy.context.scene.render.engine = 'CYCLES'
-    bpy.context.scene.cycles.feature_set = 'SUPPORTED'
-    bpy.context.scene.cycles.samples = 1
-    bpy.context.scene.cycles.use_adaptive_sampling = True
-    bpy.context.scene.cycles.use_denoising = True
-    bpy.context.scene.cycles.denoiser = 'OPENIMAGEDENOISE'
-    bpy.context.scene.cycles.use_persistent_data = True
-    bpy.context.scene.cycles.sample_clamp_indirect = 10.0
+    # 1) Cycles-instellingen
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.samples = 1
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.use_denoising = True
+    scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+    scene.cycles.use_persistent_data = True
+    scene.cycles.sample_clamp_indirect = 10.0
 
-    # GPU rendering
-    bpy.context.preferences.addons['cycles'].preferences.compute_device_type = 'METAL'
-    bpy.context.preferences.addons['cycles'].preferences.get_devices()
-    for device in bpy.context.preferences.addons['cycles'].preferences.devices:
-        device.use = True
+    N = config['scene']['num_scenes']
+    tmp = config['render']['tmp_dump_path']
 
-    # Set resolution
-    bpy.context.scene.render.resolution_x = config['x_resolution']
-    bpy.context.scene.render.resolution_y = config['y_resolution']
-    bpy.context.scene.render.resolution_percentage = 100
+    # GPU
+    prefs = bpy.context.preferences.addons['cycles'].preferences
+    prefs.compute_device_type = 'METAL'
+    prefs.get_devices()
+    for dev in prefs.devices:
+        dev.use = True
 
-    h, w = config['y_resolution'], config['x_resolution']
-    brightness_maps = []
+    # 2) Door alle even frames renderen en helderheid middelen
+    frame_means = []
+    for frame in range(0, N * 2, 2):
+        scene.render.image_settings.file_format = 'PNG'
+        scene.frame_set(frame)
 
-    for scene_idx in range(0, config['num_scenes'] * 2, 2):
-        # Set render settings to PNG
-        bpy.context.scene.render.image_settings.file_format = 'PNG'
-        bpy.context.scene.frame_set(scene_idx)
-
-        png_path = f"{config['tmp_exr_path']}_frame_{scene_idx:03d}.png"
-        bpy.context.scene.render.filepath = png_path
+        png_path = f"{tmp}/frame_{frame:04d}.png"
+        scene.render.filepath = png_path
         bpy.ops.render.render(write_still=True)
 
-        # Read PNG and convert to luminance
-        img = Image.open(png_path).convert('RGB')
-        rgb = np.asarray(img).astype(np.float32) / 255.0  # shape: (H, W, 3)
+        # Lees PNG → luminantie
+        rgb = np.asarray(Image.open(png_path).convert('RGB'), dtype=np.float32) / 255.0
+        brightness = rgb.mean(axis=2)          # (H, W) → luminantie per pixel
+        frame_means.append(float(brightness.mean()))
 
-        r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
-        brightness = (r + g + b) / 3.0  
-        brightness_maps.append(brightness)
+        print(f"🔹 Frame {frame:03d} | avg brightness: {frame_means[-1]:.3f}")
 
-        print(f"🔹 Frame {scene_idx:03d} | Max R: {r.max():.3f}, G: {g.max():.3f}, B: {b.max():.3f}, Brightness: {brightness.max():.3f}")
-
-    brightness_maps = np.stack(brightness_maps, axis=0)  # shape: (num_frames, H, W)
-    max_brightness = np.max(brightness_maps)
-    print(f"🔆 Max brightness across all frames: {max_brightness:.4f}")
-    np.save("./tmp/brightness_maps.npy", brightness_maps)
+    # 3) Gemiddelde helderheid over alle frames retourneren
+    if not frame_means:
+        return 0.0
+    avg_brightness = float(np.mean(frame_means))
+    print(f"🔆 Average brightness across all frames: {avg_brightness:.4f}")
+    return avg_brightness

@@ -6,9 +6,10 @@ import sys
 import os
 
 from scene.scene_generator import create_dataset
-from utils.parser import parse_args
+from utils.parser import load_json_config
 from utils.stats import global_stats
 from learn_config.optimizer import run_optimization
+from batch import concatenate
 
 # ----------------------------- #
 #       UTILITY FUNCTIONS      #
@@ -55,12 +56,6 @@ def get_next_config_path(base_name="train", folder="./config/setting"):
         i += 1
 
 
-def load_json_config(path: str) -> dict:
-    """Load JSON config from given path."""
-    with open(path, 'r') as f:
-        return json.load(f)
-
-
 # ----------------------------- #
 #         MAIN ROUTER          #
 # ----------------------------- #
@@ -69,12 +64,20 @@ def start():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', choices=['learn', 'create'], required=True, help='Mode: "learn" to optimize config, "create" to generate dataset')
     parser.add_argument('--config', required=True, type=str, help='Path to configuration file')
+    parser.add_argument('--batch', required=False, type=int, help='Combine multiple seeds into 1 dataset')
     args = parser.parse_args()
 
+    if args.batch:    
+        concatenate(args.config, args.batch)
+        global_stats.report()
+        return
+    
     config = load_json_config(args.config)
 
+   
     if args.mode == 'learn':
         run_optimization(config)  # or however your config is structured
+        global_stats.report()
     elif args.mode == 'create':
         create_output_folders(config['render']['output_folder'])
         create_dataset(config=config)

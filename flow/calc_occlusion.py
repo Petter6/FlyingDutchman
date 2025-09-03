@@ -89,13 +89,8 @@ def calculate_occlusion(h, w, img, config, scene_idx, obj_ids):
 
     count_oob, count_rot, count_obj = 0, 0, 0
 
-    print(f'{time.time()}')
-
-    start = time.time()
-
     # Iterate over all pixels
     for pixel_y in range(h):
-        print(pixel_y)
         for pixel_x in range(w):
             new_x = img[pixel_y, pixel_x][0] + pixel_x
             new_y = img[pixel_y, pixel_x][1] + pixel_y
@@ -151,7 +146,3 @@ def calculate_occlusion(h, w, img, config, scene_idx, obj_ids):
     global_stats.update('occ_self', count_rot)
     global_stats.update('occ_obj', count_obj)
     global_stats.update('occ_oob', count_oob)
-
-    end = time.time() - start
-    print(time.time())
-    print(end)

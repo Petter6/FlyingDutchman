@@ -66,6 +66,8 @@ class GlobalStats:
         print(f"   🟢 G: {avg_g:.2f}")
         print(f"   🔵 B: {avg_b:.2f}")
 
+        print(self.stats['disp_hist'])
+
             
             
 

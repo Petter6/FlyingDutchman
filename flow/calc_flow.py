@@ -61,33 +61,6 @@ def add_color_wheel_to_image(image, wheel, margin=10):
 
     return overlay
 
-
-def exr2fast(config):
-    FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
-    h, w = config['render']['resolution']['y'], config['render']['resolution']['x']
-
-    for scene in range(0, 2 * config['scene']['num_scenes'], 2):
-        path = f"{config['render']['output_dump_path']}/frame_{scene:03d}.exr"
-        file = OpenEXR.InputFile(path)
-
-        dw = file.header()['dataWindow']
-        width = dw.max.x - dw.min.x + 1
-        height = dw.max.y - dw.min.y + 1
-
-        assert width == w and height == h, f"Resolution mismatch in {path}"
-
-        # Efficiently read EXR flow channels into numpy
-        vec_y = np.frombuffer(file.channel("ViewLayer.Vector.W", FLOAT), dtype=np.float32).reshape(h, w)
-        vec_x = np.frombuffer(file.channel("ViewLayer.Vector.Z", FLOAT), dtype=np.float32).reshape(h, w)
-
-        # Compose flow field (flip X for direction correction if needed)
-        flow = np.stack([-vec_x, vec_y], axis=2)
-
-        # Pass flow to displacement calculator
-        calculate_displacement(h, w, flow)
-
-        file.close()
-
 def exr2flow(config):
     w, h = config['render']['resolution']['x'], config['render']['resolution']['y']
     exr_path = config['render']['tmp_dump_path']
@@ -226,6 +199,11 @@ def flow_to_image(flow):
     u = flow[:, :, 0]
     v = flow[:, :, 1]
 
+    # print(np.max(u))
+    # print(np.min(u))
+    # print(np.max(v))
+    # print(np.min(v))
+
     maxu = -999.
     maxv = -999.
     minu = 999.
@@ -349,7 +327,7 @@ def make_color_wheel():
     return colorwheel
 
 
-# show_flow('/Users/Petter/Documents/uni/thesis/datasets/testset/training/flow/scene_0/flow.flo')
+# show_flow('/Users/Petter/Documents/uni/thesis/CLEAN-MODELS/datasets/mean_80/training/flow/scene_7/flow.flo')
 
 # channels = file.header()['channels'].keys()
 

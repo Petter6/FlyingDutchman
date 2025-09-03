@@ -19,3 +19,8 @@ def parse_args(parser):
     for index, (key, value) in enumerate(vars(entry).items()):
         args_dict[key] = value
     return args
+
+def load_json_config(path: str) -> dict:
+    """Load JSON config from given path."""
+    with open(path, 'r') as f:
+        return json.load(f)
