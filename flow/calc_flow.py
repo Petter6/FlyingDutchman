@@ -9,6 +9,8 @@ import os
 from flow.calc_occlusion import calculate_occlusion
 from flow.calc_displacement import calculate_displacement
 import sys
+from utils.folder import get_flow_path
+from numpngw import write_png
 
 import matplotlib.pyplot as plt
 
@@ -64,7 +66,6 @@ def add_color_wheel_to_image(image, wheel, margin=10):
 def exr2flow(config):
     w, h = config['render']['resolution']['x'], config['render']['resolution']['y']
     exr_path = config['render']['tmp_dump_path']
-    base_path = config['render']['output_folder']
 
     if config['background']['use_3d']:
         layer_x = "RenderLayer.Vector.Z"
@@ -76,7 +77,7 @@ def exr2flow(config):
         layer_id = "ViewLayer.IndexOB.X"
 
     for idx_scene in range(config['scene']['num_scenes']):
-        flow_path = os.path.join(base_path, f'training/flow/scene_{idx_scene}/flow.flo')
+        flow_path = get_flow_path(idx_scene, config)
         tmp_path = os.path.join(exr_path, f"scene_{idx_scene}.exr")
 
         channels = [layer_x, layer_y, layer_id]
@@ -109,9 +110,24 @@ def exr2flow(config):
         cv2.imwrite(output_path, rgb_with_wheel)
         print(f"Image with color wheel saved to {output_path}")
 
-        writeFLO(flow_path, config, x, y)
+        if config['render']['format'] == 'sintel':
+            writeSintelFlow(flow_path, config, x, y)
+        else:
+            writeKITTIFlow(flow_path, config, x, y)
 
-def writeFLO(filename, config, u_data, v_data):
+def writeKITTIFlow(filename, config, u_data, v_data):
+    u_data = -1.0 * u_data
+    Scaled_Flow = np.stack((u_data, v_data), axis=-1)
+
+    # first channel for height, second for width, third for validity
+    sf16 = (64*Scaled_Flow + 2**15).astype(np.uint16)
+
+    # all ones so the entire flow is valid 
+    imgdata = np.concatenate((sf16, np.ones(sf16.shape[:2] + (1,), dtype=sf16.dtype)), axis=2)
+
+    write_png(filename, imgdata)
+
+def writeSintelFlow(filename, config, u_data, v_data):
     """
     Create a binary flow file with the specified format.
 
@@ -129,6 +145,8 @@ def writeFLO(filename, config, u_data, v_data):
     # Check input validity
     if u_data.shape != (height, width) or v_data.shape != (height, width):
         raise ValueError("u_data and v_data must have the shape (height, width).")
+    
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
 
     # Open the file in binary write mode
     with open(filename, 'wb+') as f:

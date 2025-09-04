@@ -226,5 +226,3 @@ def create_dataset(config):
         create_scene(config)
         render_dataset(config)
         exr2flow(config)
-    
-    shutil.rmtree(config['render']['tmp_dump_path'])
